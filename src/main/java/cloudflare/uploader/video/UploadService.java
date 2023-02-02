@@ -34,7 +34,7 @@ import static org.springframework.http.HttpMethod.GET;
 @Slf4j
 @Service
 @RequiredArgsConstructor
-class UploaderService {
+class UploadService {
     private final CloudflareConfig conf;
     private final RestTemplate restTemplate;
 
