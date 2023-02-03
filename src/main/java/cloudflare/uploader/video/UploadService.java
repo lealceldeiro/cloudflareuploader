@@ -27,6 +27,8 @@ import java.util.Collections;
 import java.util.List;
 
 import static org.springframework.http.HttpMethod.GET;
+import static org.springframework.http.MediaType.ALL;
+import static org.springframework.http.MediaType.APPLICATION_OCTET_STREAM;
 
 @Slf4j
 @Service
@@ -48,7 +50,7 @@ class UploadService {
 
         String cloudflareUploadStreamUrl = conf.getApiUrl() + "/accounts/" + conf.getAccountId() + "/stream/copy";
 
-        RequestCallback setRequestHeaders = setRestTemplateRequestHeadersCallback();
+        RequestCallback setRequestHeaders = req -> req.getHeaders().setAccept(List.of(APPLICATION_OCTET_STREAM, ALL));
 
         ResponseExtractor<?> uploadVideoToCloudflare = response -> {
             TusClient tusClient = createNewTusClient(conf.getAccountToken(), cloudflareUploadStreamUrl);
@@ -72,10 +74,6 @@ class UploadService {
         } catch (RestClientException e) {
             log.error("Video download error: message: {}. Stacktrace:", e.getLocalizedMessage(), e.getCause());
         }
-    }
-
-    private static RequestCallback setRestTemplateRequestHeadersCallback() {
-        return req -> req.getHeaders().setAccept(List.of(MediaType.APPLICATION_OCTET_STREAM, MediaType.ALL));
     }
 
     private static TusClient createNewTusClient(String cloudflareApiToken,
