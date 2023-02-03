@@ -23,11 +23,8 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.net.MalformedURLException;
 import java.net.URL;
-import java.util.HashMap;
+import java.util.Collections;
 import java.util.List;
-import java.util.Map;
-import java.util.Optional;
-import java.util.UUID;
 
 import static org.springframework.http.HttpMethod.GET;
 
@@ -54,11 +51,7 @@ class UploadService {
         RequestCallback setRequestHeaders = setRestTemplateRequestHeadersCallback();
 
         ResponseExtractor<Void> uploadVideoToCloudflare = response -> {
-            // see https://github.com/tus/tus-java-client#usage
-            long contentLength = response.getHeaders().getContentLength();
-
-            TusClient tusClient = createNewTusClient(conf.getAccountToken(), cloudflareUploadStreamUrl, contentLength);
-
+            TusClient tusClient = createNewTusClient(conf.getAccountToken(), cloudflareUploadStreamUrl);
             InputStream responseInputStream = response.getBody();
             TusUpload tusUpload = createNewTusUpload(responseInputStream);
 
@@ -85,17 +78,12 @@ class UploadService {
         return req -> req.getHeaders().setAccept(List.of(MediaType.APPLICATION_OCTET_STREAM, MediaType.ALL));
     }
 
-    private static TusClient createNewTusClient(String cloudflareApiToken, String cloudflareUploadStreamUrl,
-                                                long contentLength) throws MalformedURLException {
+    private static TusClient createNewTusClient(String cloudflareApiToken,
+                                                String cloudflareUploadStreamUrl) throws MalformedURLException {
+        // see https://github.com/tus/tus-java-client#usage
         TusClient client = new TusClient();
-
-        Map<String, String> tusHeaders = Optional.ofNullable(client.getHeaders())
-                                                 .orElseGet(() -> getNewTusClientHeaders(contentLength));
-        log.info("TUS client headers without auth ones: {}", tusHeaders);
-        tusHeaders.put(HttpHeaders.AUTHORIZATION, "Bearer " + cloudflareApiToken);
-
         client.setUploadCreationURL(new URL(cloudflareUploadStreamUrl));
-        client.setHeaders(tusHeaders);
+        client.setHeaders(Collections.singletonMap(HttpHeaders.AUTHORIZATION, "Bearer " + cloudflareApiToken));
         client.enableResuming(new TusURLMemoryStore());
 
         return client;
@@ -105,16 +93,6 @@ class UploadService {
         TusUpload upload = new TusUpload();
         upload.setInputStream(inputStream);
         return upload;
-    }
-
-    private static Map<String, String> getNewTusClientHeaders(long contentLength) {
-        // https://developers.cloudflare.com/api/operations/stream-videos-initiate-video-uploads-using-tus#request-headers
-        Map<String, String> headers = new HashMap<>();
-        headers.put("Tus-Resumable", TusClient.TUS_VERSION);
-        headers.put("Upload-Creator", UUID.randomUUID().toString());
-        headers.put("Upload-Length", String.valueOf(contentLength));
-
-        return headers;
     }
 
     private static TusExecutor createNewTusExecutor(TusClient client, TusUpload upload) {
