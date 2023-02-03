@@ -50,7 +50,7 @@ class UploadService {
 
         RequestCallback setRequestHeaders = setRestTemplateRequestHeadersCallback();
 
-        ResponseExtractor<Void> uploadVideoToCloudflare = response -> {
+        ResponseExtractor<?> uploadVideoToCloudflare = response -> {
             TusClient tusClient = createNewTusClient(conf.getAccountToken(), cloudflareUploadStreamUrl);
             InputStream responseInputStream = response.getBody();
             TusUpload tusUpload = createNewTusUpload(responseInputStream);
