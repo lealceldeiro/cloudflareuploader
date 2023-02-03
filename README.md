@@ -30,7 +30,7 @@ You'll see in the logs, the following error message (along with other info), pro
 [tus-java-client](https://github.com/tus/tus-java-client), referenced in the
 [Cloudflare docs](https://developers.cloudflare.com/stream/uploading-videos/upload-video-file/#what-is-tus).
 
-This comes from the tus-java client used in [UploadService](https://github.com/lealceldeiro/cloudflareuploader/blob/main/src/main/java/cloudflare/uploader/video/UploadService.java#L54)
+This comes from the tus-java client used in [UploadService](https://github.com/lealceldeiro/cloudflareuploader/blob/main/src/main/java/cloudflare/uploader/video/UploadService.java#L56)
 
 ```text
 unexpected status code (400) while creating upload
