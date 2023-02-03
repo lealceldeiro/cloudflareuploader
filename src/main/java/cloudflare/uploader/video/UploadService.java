@@ -11,7 +11,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpHeaders;
-import org.springframework.http.MediaType;
+import org.springframework.http.client.ClientHttpResponse;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RequestCallback;
 import org.springframework.web.client.ResponseExtractor;
@@ -23,9 +23,9 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.net.MalformedURLException;
 import java.net.URL;
-import java.util.Collections;
 import java.util.List;
 
+import static java.util.Collections.singletonMap;
 import static org.springframework.http.HttpMethod.GET;
 import static org.springframework.http.MediaType.ALL;
 import static org.springframework.http.MediaType.APPLICATION_OCTET_STREAM;
@@ -48,32 +48,29 @@ class UploadService {
     void uploadVideo(String publicVideoUrl) {
         log.info("token: {} id: {}", conf.getAccountToken(), conf.getAccountId());
 
-        String cloudflareUploadStreamUrl = conf.getApiUrl() + "/accounts/" + conf.getAccountId() + "/stream/copy";
-
+        String cloudflareUploadUrl = conf.getApiUrl() + "/accounts/" + conf.getAccountId() + "/stream/copy";
         RequestCallback setRequestHeaders = req -> req.getHeaders().setAccept(List.of(APPLICATION_OCTET_STREAM, ALL));
-
-        ResponseExtractor<?> uploadVideoToCloudflare = response -> {
-            TusClient tusClient = createNewTusClient(conf.getAccountToken(), cloudflareUploadStreamUrl);
-            InputStream responseInputStream = response.getBody();
-            TusUpload tusUpload = createNewTusUpload(responseInputStream);
-
-            TusExecutor tusExecutor = createNewTusExecutor(tusClient, tusUpload);
-
-            try {
-                log.info("Starting video upload from {} to Cloudflare", publicVideoUrl);
-                tusExecutor.makeAttempts();
-            } catch (ProtocolException e) {
-                log.error("Video upload error: message: {}. Stacktrace:", e.getLocalizedMessage(), e);
-            }
-
-            return null;
-        };
+        ResponseExtractor<?> uploadVideo = res -> attemptVideoUpload(publicVideoUrl, cloudflareUploadUrl, res);
 
         try {
-            restTemplate.execute(publicVideoUrl, GET, setRequestHeaders, uploadVideoToCloudflare);
+            restTemplate.execute(publicVideoUrl, GET, setRequestHeaders, uploadVideo);
         } catch (RestClientException e) {
             log.error("Video download error: message: {}. Stacktrace:", e.getLocalizedMessage(), e.getCause());
         }
+    }
+
+    private Object attemptVideoUpload(String publicVideoUrl, String cloudflareUploadStreamUrl,
+                                      ClientHttpResponse response) throws IOException {
+        TusClient tusClient = createNewTusClient(conf.getAccountToken(), cloudflareUploadStreamUrl);
+        TusUpload tusUpload = createNewTusUpload(response.getBody());
+        TusExecutor tusExecutor = createNewTusExecutor(tusClient, tusUpload);
+        try {
+            log.info("Starting video upload from {} to Cloudflare", publicVideoUrl);
+            tusExecutor.makeAttempts();
+        } catch (ProtocolException e) {
+            log.error("Video upload error: message: {}. Stacktrace:", e.getLocalizedMessage(), e);
+        }
+        return null;
     }
 
     private static TusClient createNewTusClient(String cloudflareApiToken,
@@ -81,7 +78,7 @@ class UploadService {
         // see https://github.com/tus/tus-java-client#usage
         TusClient client = new TusClient();
         client.setUploadCreationURL(new URL(cloudflareUploadStreamUrl));
-        client.setHeaders(Collections.singletonMap(HttpHeaders.AUTHORIZATION, "Bearer " + cloudflareApiToken));
+        client.setHeaders(singletonMap(HttpHeaders.AUTHORIZATION, "Bearer " + cloudflareApiToken));
         client.enableResuming(new TusURLMemoryStore());
 
         return client;
@@ -90,6 +87,7 @@ class UploadService {
     private static TusUpload createNewTusUpload(InputStream inputStream) {
         TusUpload upload = new TusUpload();
         upload.setInputStream(inputStream);
+        upload.setMetadata(singletonMap("name", "Video_" + System.currentTimeMillis()));
         return upload;
     }
 
