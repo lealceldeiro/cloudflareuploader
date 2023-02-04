@@ -65,7 +65,7 @@ class UploadService {
         TusUpload tusUpload = createNewTusUpload(response.getBody());
         TusExecutor tusExecutor = createNewTusExecutor(tusClient, tusUpload);
         try {
-            log.info("Starting video upload from {} to Cloudflare", publicVideoUrl);
+            log.info("Starting video upload from {} to {}", videoUrl, uploadUrl);
             tusExecutor.makeAttempts();
         } catch (ProtocolException e) {
             log.error("Video upload error: message: {}. Stacktrace:", e.getLocalizedMessage(), e);
@@ -103,7 +103,7 @@ class UploadService {
                     long bytesUploaded = uploader.getOffset();
                     double progress = (double) bytesUploaded / totalBytes * 100;
 
-                    log.info("Upload at {}%.", progress);
+                    log.info("Upload at {}%", progress);
                 } while (uploader.uploadChunk() > -1);
 
                 // Allow the HTTP connection to be closed and cleaned up
