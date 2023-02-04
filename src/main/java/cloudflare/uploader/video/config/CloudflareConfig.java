@@ -19,6 +19,7 @@ import java.time.Duration;
 @Setter(AccessLevel.PACKAGE)
 @ConfigurationProperties(prefix = "cloudflare")
 public class CloudflareConfig {
+    private boolean enabled;
     private String apiUrl;
     private String accountToken;
     private String accountId;
