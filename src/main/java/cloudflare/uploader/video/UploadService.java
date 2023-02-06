@@ -61,7 +61,7 @@ class UploadService {
         }
         log.info("Cloudflare config: {}", conf);
 
-        String uploadUrl = conf.isCfEnabled() ? conf.getApiUrl() + "/accounts/" + conf.getAccountId() + "/stream/copy"
+        String uploadUrl = conf.isCfEnabled() ? conf.getApiUrl() + "/accounts/" + conf.getAccountId() + "/stream"
                                               : publicUploadUrl;
         RequestCallback setRequestHeaders = req -> req.getHeaders().setAccept(List.of(APPLICATION_OCTET_STREAM, ALL));
         ResponseExtractor<?> uploadVideo = response -> attemptVideoUpload(publicVideoUrl, uploadUrl, response);
