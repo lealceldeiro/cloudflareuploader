@@ -12,7 +12,6 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.client.ClientHttpResponse;
 import org.springframework.stereotype.Service;
-import org.springframework.util.StreamUtils;
 import org.springframework.web.client.RequestCallback;
 import org.springframework.web.client.ResponseExtractor;
 import org.springframework.web.client.RestClientException;
@@ -21,7 +20,6 @@ import org.springframework.web.client.RestTemplate;
 import javax.annotation.PostConstruct;
 import java.io.File;
 import java.io.FileNotFoundException;
-import java.io.FileOutputStream;
 import java.io.IOException;
 import java.net.MalformedURLException;
 import java.net.URL;
@@ -42,6 +40,7 @@ import static org.springframework.http.MediaType.APPLICATION_OCTET_STREAM;
 @RequiredArgsConstructor
 class UploadService {
     private static final ScheduledExecutorService EXECUTOR = Executors.newSingleThreadScheduledExecutor();
+    private final AppManager app;
     private final CloudflareConfig conf;
     private final RestTemplate restTemplate;
 
@@ -60,10 +59,10 @@ class UploadService {
         if (publicVideoUrl == null) {
             return;
         }
-        log.info("token: {} id: {}", conf.getAccountToken(), conf.getAccountId());
+        log.info("Cloudflare config: {}", conf);
 
-        String uploadUrl = conf.isEnabled() ? conf.getApiUrl() + "/accounts/" + conf.getAccountId() + "/stream/copy"
-                                            : publicUploadUrl;
+        String uploadUrl = conf.isCfEnabled() ? conf.getApiUrl() + "/accounts/" + conf.getAccountId() + "/stream/copy"
+                                              : publicUploadUrl;
         RequestCallback setRequestHeaders = req -> req.getHeaders().setAccept(List.of(APPLICATION_OCTET_STREAM, ALL));
         ResponseExtractor<?> uploadVideo = response -> attemptVideoUpload(publicVideoUrl, uploadUrl, response);
 
@@ -72,14 +71,16 @@ class UploadService {
         } catch (RestClientException e) {
             log.error("Video download error: message: {}. Stacktrace:", e.getLocalizedMessage(), e.getCause());
         }
+        app.shutDown();
     }
 
     private Object attemptVideoUpload(String videoUrl, String uploadUrl, ClientHttpResponse res) throws IOException {
-        File tempFile = temporaryFileFromResponseInputStream(videoUrl, res);
+        File tempFile = Utils.tempFileFromResponseInputStream(videoUrl, res);
 
         TusClient tusClient = createNewTusClient(conf.getAccountToken(), uploadUrl);
         TusUpload tusUpload = createNewTusUpload(tempFile);
         TusExecutor tusExecutor = createNewTusExecutor(tusClient, tusUpload);
+
         try {
             log.info("Starting video upload from {} to {}", videoUrl, uploadUrl);
             tusExecutor.makeAttempts();
@@ -87,27 +88,6 @@ class UploadService {
             log.error("Video upload error: message: {}. Stacktrace:", e.getLocalizedMessage(), e);
         }
         return null;
-    }
-
-    private static File temporaryFileFromResponseInputStream(String videoUrl, ClientHttpResponse res) throws IOException {
-        String fileName = videoNameFromUrl(videoUrl);
-        log.info("Video name: {}",fileName);
-
-        File tempFile = new File(fileName);
-        tempFile.deleteOnExit();
-
-        try (FileOutputStream fos = new FileOutputStream(tempFile)) {
-            StreamUtils.copy(res.getBody(), fos);
-            return tempFile;
-        }
-    }
-
-    private static String videoNameFromUrl(String videoUrl) {
-        String videoName = videoUrl.substring(videoUrl.lastIndexOf("/") + 1);
-        int extensionSeparator = videoName.lastIndexOf(".");
-        String videoExtension = extensionSeparator != -1 ? videoName.substring(extensionSeparator) : ".mp4";
-
-        return videoName.substring(0, extensionSeparator) + "_" + System.currentTimeMillis() + videoExtension;
     }
 
     private static TusClient createNewTusClient(String uploadApiToken, String uploadUrl) throws MalformedURLException {

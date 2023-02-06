@@ -31,8 +31,22 @@ You'll see in the logs, the following error message (along with other info), pro
 [tus-java-client](https://github.com/tus/tus-java-client), referenced in the
 [Cloudflare docs](https://developers.cloudflare.com/stream/uploading-videos/upload-video-file/#what-is-tus).
 
-This comes from the tus-java client used in [UploadService](https://github.com/lealceldeiro/cloudflareuploader/blob/main/src/main/java/cloudflare/uploader/video/UploadService.java#L115)
+This comes from the tus-java client used in [UploadService](https://github.com/lealceldeiro/cloudflareuploader/blob/main/src/main/java/cloudflare/uploader/video/UploadService.java#L94)
 
 ```text
 unexpected status code (400) while creating upload
 ```
+
+---
+
+Alternative, the upload can be done to `https://tusd.tusdemo.net/files` by passing the app the following argument:
+`--cloudflare.enabled=false`, in which case you don't need to specify `cloudflare.account-token` or
+`cloudflare.account-id`. Example:
+
+```shell
+./mvnw spring-boot:run -Dspring-boot.run.arguments="--cloudflare.enabled=false"
+```
+
+---
+
+Note: the application is automatically shut down after the upload attempt is performed.
